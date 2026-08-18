@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="収支管理" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <link rel="manifest" href="manifest.json" />
+
+  <link rel="stylesheet" href="css/style.css" />
+  <title>収支管理</title>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>収支管理</h1>
+  </header>
+
+  <!-- 最上位のタブ: 収支入力 / 収支分析 / 登録情報 -->
+  <main>
+    <section class="tab-content active" id="tab-input">
+
+      <!-- 画面①: カレンダー(ホーム画面) -->
+      <div class="session-screen active" id="screen-calendar">
+        <div class="calendar-header">
+          <button id="calPrevBtn" class="icon-btn">◀</button>
+          <h2 id="calMonthLabel"></h2>
+          <button id="calNextBtn" class="icon-btn">▶</button>
+        </div>
+
+        <div class="calendar-weekdays">
+          <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+        </div>
+
+        <div class="calendar-grid" id="calendarGrid"></div>
+
+        <div class="calendar-total">合計: <span id="calMonthTotal">¥0</span></div>
+
+        <div class="day-detail" id="dayDetail">
+          <h3 id="dayDetailTitle"></h3>
+          <ul class="reg-list" id="dayDetailList"></ul>
+        </div>
+      </div>
+
+      <!-- カレンダーからここで新規記録を開始する -->
+      <button id="fabAddBtn" class="fab-btn">＋</button>
+
+      <!-- 画面: 記録する項目を選ぶ(パチンコ・スロット/競馬/ボートレース) -->
+      <div class="session-screen" id="screen-category-select">
+        <h2 class="screen-title">何を記録しますか?</h2>
+        <div class="category-choice-list">
+          <button class="category-choice-btn" data-category-choice="pachinko">パチンコ・スロット</button>
+          <button class="category-choice-btn" data-category-choice="競馬">競馬</button>
+          <button class="category-choice-btn" data-category-choice="ボートレース">ボートレース</button>
+        </div>
+        <button class="text-btn-neutral" id="cancelCategorySelectBtn">← カレンダーに戻る</button>
+      </div>
+
+      <!-- 画面②: 開始前(店舗・レート・機種を選んで開始ゲーム数を入力) -->
+      <div class="session-screen" id="screen-start">
+        <h2 class="screen-title">パチンコ・スロット開始</h2>
+
+        <div class="field-group">
+          <label>店舗</label>
+          <select id="sessionStoreSelect">
+            <option value="">選択してください</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label>レート</label>
+          <select id="sessionRateSelect" disabled>
+            <option value="">先に店舗を選んでください</option>
+          </select>
+        </div>
+
+        <div class="field-group hidden" id="cardBalanceInfo">
+          <label class="checkbox-label">
+            <input type="checkbox" id="sessionUseCardInput" />
+            会員カードを使う(残高: <span id="cardBalanceText">0</span>個)
+          </label>
+        </div>
+
+        <div class="field-group">
+          <label>機種</label>
+          <select id="sessionModelSelect">
+            <option value="">選択してください</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label>開始ゲーム数</label>
+          <input type="number" id="sessionStartGameCountInput" value="0" min="0" />
+        </div>
+
+        <button id="sessionStartBtn" class="primary-btn">開始</button>
+        <button id="cancelStartBtn" class="text-btn-neutral">← カレンダーに戻る</button>
+      </div>
+
+      <!-- 画面②: 進行中 -->
+      <div class="session-screen" id="screen-progress">
+        <h2 class="screen-title" id="progressTitle"></h2>
+
+        <div class="field-group">
+          <label>投資金額</label>
+          <div class="stepper-row">
+            <button class="stepper-btn" id="investMinusBtn">−1000</button>
+            <input type="number" id="investmentAmountInput" value="0" min="0" />
+            <button class="stepper-btn" id="investPlusBtn">+1000</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>現在のゲーム数</label>
+          <input type="number" id="currentGameCountInput" min="0" />
+        </div>
+
+        <div class="field-group">
+          <label>現在の所持玉/メダル数</label>
+          <input type="number" id="currentBallsInput" value="0" min="0" />
+        </div>
+
+        <div class="button-row">
+          <button id="winBtn" class="primary-btn">当たり</button>
+          <button id="endFromProgressBtn" class="secondary-btn">終了</button>
+        </div>
+
+        <button id="discardSessionBtn" class="text-btn">記録を保存せず中断する</button>
+      </div>
+
+      <!-- 画面③: 当たり記録 -->
+      <div class="session-screen" id="screen-win">
+        <h2 class="screen-title">当たり記録</h2>
+
+        <p class="confirm-text">
+          当たった時点: ゲーム数 <strong id="winGameCountText"></strong> /
+          投資金額 <strong id="winInvestmentText"></strong>円 /
+          所持数 <strong id="winBallsBeforeText"></strong>個
+        </p>
+
+        <div class="field-group">
+          <label>現在の所持玉/メダル数(回収後)</label>
+          <input type="number" id="winNewBallsInput" value="0" min="0" />
+        </div>
+
+        <p class="confirm-text">回収した玉/メダル数: <strong id="winCollectedText">0</strong>個(自動計算)</p>
+
+        <div class="button-row">
+          <button id="continueBtn" class="primary-btn">続ける</button>
+          <button id="endFromWinBtn" class="secondary-btn">終了</button>
+        </div>
+        <button id="backFromWinBtn" class="text-btn-neutral">← 戻る(この当たりを取り消す)</button>
+      </div>
+
+      <!-- 画面④: 終了 -->
+      <div class="session-screen" id="screen-end">
+        <h2 class="screen-title">終了</h2>
+
+        <div class="field-group">
+          <label>最終ゲーム数</label>
+          <input type="number" id="endGameCountInput" min="0" />
+        </div>
+
+        <div class="field-group">
+          <label>最終所持玉/メダル数</label>
+          <input type="number" id="endBallsInput" min="0" />
+        </div>
+
+        <div class="field-group hidden" id="cardActionGroup">
+          <label>会員カードへの対応</label>
+          <div class="button-row">
+            <button class="toggle-btn" data-action="exchange" id="cardExchangeBtn">換金する(余りをカードへ)</button>
+            <button class="toggle-btn" data-action="keep" id="cardKeepBtn">換金しない(全部カードへ)</button>
+          </div>
+        </div>
+
+        <button id="confirmEndBtn" class="primary-btn">記録を確定する</button>
+        <button id="backFromEndBtn" class="text-btn-neutral">← 戻る(まだ確定しない)</button>
+      </div>
+
+      <!-- 画面: 競馬・ボートレースの入力(場を選び、+ボタンで賭けを複数追加) -->
+      <div class="session-screen" id="screen-race">
+        <h2 class="screen-title" id="raceScreenTitle"></h2>
+
+        <div class="field-group">
+          <label>場</label>
+          <select id="raceVenueSelect">
+            <option value="">選択してください</option>
+          </select>
+        </div>
+
+        <ul class="reg-list" id="raceBetList"></ul>
+
+        <button id="addBetBtn" class="secondary-btn">＋ 投票形式を追加</button>
+
+        <button id="saveRaceBtn" class="primary-btn" style="margin-top: 16px;">保存</button>
+        <button id="cancelRaceBtn" class="text-btn-neutral">← カレンダーに戻る</button>
+      </div>
+
+    </section>
+
+    <section class="tab-content" id="tab-analysis">
+
+      <!-- 期間切り替え(月別/年別/全期間)は、概要・項目別・記録のどのサブタブでも共通で使う -->
+      <div class="period-type-tabs">
+        <button class="period-type-btn active" data-period="month">月別</button>
+        <button class="period-type-btn" data-period="year">年別</button>
+        <button class="period-type-btn" data-period="all">全期間</button>
+      </div>
+
+      <div class="period-nav">
+        <button id="periodPrevBtn" class="icon-btn">◀</button>
+        <span id="periodLabel"></span>
+        <button id="periodNextBtn" class="icon-btn">▶</button>
+      </div>
+
+      <nav class="subtabs">
+        <button class="analysis-tab-btn active" data-atab="overview">概要</button>
+        <button class="analysis-tab-btn" data-atab="breakdown">項目別</button>
+        <button class="analysis-tab-btn" data-atab="records">記録</button>
+      </nav>
+
+      <!-- ① 概要 -->
+      <section class="analysis-tab-content active" id="subtab-overview">
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span class="stat-label">収支</span>
+            <span class="stat-value" id="statProfit">¥0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">投資</span>
+            <span class="stat-value" id="statInvestment">¥0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">回収</span>
+            <span class="stat-value" id="statCollection">¥0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">勝率</span>
+            <span class="stat-value" id="statWinRate">-</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">回収率</span>
+            <span class="stat-value" id="statRecoveryRate">-</span>
+          </div>
+        </div>
+
+        <h3 class="section-heading">収支の推移(累積)</h3>
+        <div id="cumulativeChartContainer" class="chart-container"></div>
+
+        <h3 class="section-heading">課税ライン(今年・50万円)</h3>
+        <div class="tax-gauge">
+          <div class="tax-gauge-bar">
+            <div class="tax-gauge-fill" id="taxGaugeFill"></div>
+          </div>
+          <p class="tax-gauge-text" id="taxGaugeText"></p>
+        </div>
+      </section>
+
+      <!-- ② 項目別: パチンコ・スロット/競馬/ボートレースの3タブに分ける -->
+      <section class="analysis-tab-content" id="subtab-breakdown">
+
+        <nav class="catmain-tabs">
+          <button class="catmain-btn active" data-catmain="pachi">パチンコ・スロット</button>
+          <button class="catmain-btn" data-catmain="keiba">競馬</button>
+          <button class="catmain-btn" data-catmain="boat">ボートレース</button>
+        </nav>
+
+        <!-- パチンコ・スロット -->
+        <div class="catmain-content active" id="catmain-pachi">
+          <div class="toggle-row">
+            <button class="toggle-btn active" id="pachiUnitYenBtn" data-unit="yen">円で見る</button>
+            <button class="toggle-btn" id="pachiUnitBallBtn" data-unit="balls">玉/メダルで見る</button>
+          </div>
+          <p class="hint-text" id="pachiUnitHint"></p>
+
+          <ul class="reg-list" id="pachiCategoryList"></ul>
+
+          <h3 class="section-heading">グループ別集計</h3>
+          <div class="group-by-tabs">
+            <button class="pachi-group-btn active" data-group="store">店舗</button>
+            <button class="pachi-group-btn" data-group="rate">レート</button>
+            <button class="pachi-group-btn" data-group="model">機種</button>
+          </div>
+          <ul class="reg-list" id="pachiGroupList"></ul>
+
+          <h3 class="section-heading">曜日別の収支傾向</h3>
+          <div id="pachiWeekdayChart" class="chart-container"></div>
+        </div>
+
+        <!-- 競馬 -->
+        <div class="catmain-content" id="catmain-keiba">
+          <div class="stats-grid" id="keibaSummaryStats"></div>
+
+          <h3 class="section-heading">グループ別集計</h3>
+          <div class="group-by-tabs">
+            <button class="keiba-group-btn active" data-group="venue">場</button>
+            <button class="keiba-group-btn" data-group="votingType">投票形式</button>
+          </div>
+          <ul class="reg-list" id="keibaGroupList"></ul>
+        </div>
+
+        <!-- ボートレース -->
+        <div class="catmain-content" id="catmain-boat">
+          <div class="stats-grid" id="boatSummaryStats"></div>
+
+          <h3 class="section-heading">グループ別集計</h3>
+          <div class="group-by-tabs">
+            <button class="boat-group-btn active" data-group="venue">場</button>
+            <button class="boat-group-btn" data-group="votingType">投票形式</button>
+          </div>
+          <ul class="reg-list" id="boatGroupList"></ul>
+        </div>
+
+      </section>
+
+      <!-- ③ 記録(次回以降実装) -->
+      <section class="analysis-tab-content" id="subtab-records">
+
+        <h3 class="section-heading">ベスト/ワースト(1日単位)</h3>
+        <ul class="reg-list" id="bestWorstDayList"></ul>
+
+        <h3 class="section-heading">ベスト/ワースト(機種単位)</h3>
+        <ul class="reg-list" id="bestWorstModelList"></ul>
+
+        <h3 class="section-heading">連勝・連敗記録</h3>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span class="stat-label">最大連勝</span>
+            <span class="stat-value" id="statMaxWinStreak">-</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">最大連敗</span>
+            <span class="stat-value" id="statMaxLoseStreak">-</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">直近の状況</span>
+            <span class="stat-value" id="statCurrentStreak">-</span>
+          </div>
+        </div>
+
+        <h3 class="section-heading">大当たり間隔(機種別・平均ゲーム数)</h3>
+        <ul class="reg-list" id="hitIntervalList"></ul>
+
+      </section>
+
+    </section>
+
+    <section class="tab-content" id="tab-registration">
+
+      <!-- 登録情報タブの中の、さらに1段階下のタブ -->
+      <nav class="subtabs">
+        <button class="subtab-btn active" data-subtab="stores">店舗</button>
+        <button class="subtab-btn" data-subtab="models">機種</button>
+        <button class="subtab-btn" data-subtab="venues">場</button>
+        <button class="subtab-btn" data-subtab="cards">会員カード</button>
+      </nav>
+
+      <!-- ① 店舗登録 -->
+      <section class="subtab-content active" id="subtab-stores">
+        <form id="storeForm" class="reg-form">
+          <input type="text" id="storeNameInput" placeholder="店舗名" required />
+          <label class="checkbox-label">
+            <input type="checkbox" id="storeHasCardInput" />
+            会員カードあり
+          </label>
+          <button type="submit">店舗を追加</button>
+        </form>
+
+        <ul id="storeList" class="reg-list"></ul>
+      </section>
+
+      <!-- ② 機種登録 -->
+      <section class="subtab-content" id="subtab-models">
+        <form id="modelForm" class="reg-form">
+          <input type="text" id="modelNameInput" placeholder="機種名" required />
+          <button type="submit">機種を追加</button>
+        </form>
+
+        <ul id="modelList" class="reg-list"></ul>
+      </section>
+
+      <!-- ③ 場登録(競馬場・ボート場) -->
+      <section class="subtab-content" id="subtab-venues">
+        <nav class="subtabs subtabs-small">
+          <button class="venue-category-btn active" data-category="競馬">競馬場</button>
+          <button class="venue-category-btn" data-category="ボートレース">ボート場</button>
+        </nav>
+
+        <form id="venueForm" class="reg-form">
+          <input type="text" id="venueNameInput" placeholder="場名" required />
+          <button type="submit">場を追加</button>
+        </form>
+
+        <ul id="venueList" class="reg-list"></ul>
+      </section>
+
+      <!-- ④ 会員カード残高一覧(登録はここではせず、店舗のレート登録時に一緒に作られる) -->
+      <section class="subtab-content" id="subtab-cards">
+        <p class="placeholder">会員カードは各店舗のレート登録時に自動的に作られます。ここでは残高の一覧だけを確認できます。</p>
+        <ul id="cardList" class="reg-list"></ul>
+      </section>
+
+    </section>
+  </main>
+
+  <!-- 片手操作しやすいよう、タブは画面下部に配置する -->
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="input">収支入力</button>
+    <button class="tab-btn" data-tab="analysis">収支分析</button>
+    <button class="tab-btn" data-tab="registration">登録情報</button>
+  </nav>
+
+  <!-- 店舗の詳細(レート一覧・レート追加)を表示するモーダル -->
+  <div id="rateModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="rateModalStoreName"></h2>
+        <button id="rateModalClose" class="icon-btn">閉じる</button>
+      </div>
+
+      <ul id="rateList" class="reg-list"></ul>
+
+      <form id="rateForm" class="reg-form">
+        <select id="rateCategoryInput">
+          <option value="パチンコ">パチンコ</option>
+          <option value="スロット">スロット</option>
+        </select>
+        <input type="number" id="rateNumberInput" placeholder="レートの数字(例: 4)" min="0" step="0.1" required />
+        <input type="number" id="rateLendInput" placeholder="1000円あたりの貸出数" required />
+        <div class="rate-exchange-row">
+          <input type="number" id="rateExchangeYenInput" placeholder="換金の基準額(円)" required />
+          <span>円につき</span>
+          <input type="number" id="rateExchangeUnitsInput" placeholder="必要な玉/メダル数" required />
+          <span>個</span>
+        </div>
+        <button type="submit">レートを追加</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 競馬・ボートレースの賭けを1件追加するモーダル -->
+  <!-- 項目別: 店舗をタップした時に、その店舗のレート別の内訳を表示するモーダル -->
+  <div id="storeDrilldownModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="storeDrilldownTitle"></h2>
+        <button id="storeDrilldownClose" class="icon-btn">閉じる</button>
+      </div>
+      <ul class="reg-list" id="storeDrilldownList"></ul>
+    </div>
+  </div>
+
+  <div id="betModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>投票形式を追加</h2>
+        <button id="betModalClose" class="icon-btn">閉じる</button>
+      </div>
+
+      <form id="betForm" class="reg-form">
+        <select id="betVotingTypeInput"></select>
+        <select id="betPurchaseMethodInput"></select>
+        <input type="number" id="betInvestmentInput" placeholder="投資金額(円)" min="0" required />
+        <input type="number" id="betCollectionInput" placeholder="回収金額(円)" min="0" required />
+        <button type="submit">この内容で追加</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- パチンコ・スロットの記録(投資金額・回収金額)を修正するモーダル -->
+  <div id="editSessionModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>記録を修正</h2>
+        <button id="editSessionModalClose" class="icon-btn">閉じる</button>
+      </div>
+
+      <p class="confirm-text">
+        ゲーム数や玉/メダル数の内訳は修正できません。修正したい場合は削除して記録し直してください。
+      </p>
+
+      <form id="editSessionForm" class="reg-form">
+        <input type="number" id="editInvestmentInput" placeholder="投資金額(円)" min="0" required />
+        <input type="number" id="editCollectedInput" placeholder="回収金額(円)" min="0" required />
+        <button type="submit">保存</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/registration.js"></script>
+  <script src="js/session.js"></script>
+  <script src="js/race.js"></script>
+  <script src="js/analysis.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

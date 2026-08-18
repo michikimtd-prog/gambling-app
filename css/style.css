@@ -1,0 +1,844 @@
+/* この段階ではデザインの作り込みはせず、後で見やすいようにするための最低限のスタイルのみ */
+
+:root {
+  --bg: #1a1a1a;
+  --surface: #262626;
+  --surface-2: #303030;
+  --text: #e5e5e5;
+  --text-dim: #999;
+  --accent: #4ade80;
+  --danger: #f87171;
+  --border: #3a3a3a;
+}
+
+/* どの要素にも使える汎用の非表示クラス。個別のclass.hiddenより優先させたいので!importantを使う */
+.hidden {
+  display: none !important;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  /* iPhoneのノッチ・ホームバー部分に文字が被らないようにする */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.app-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* ---------- 最上位タブ ---------- */
+
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  /* iPhoneのホームバー部分に文字が被らないようにする */
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 20;
+}
+
+.tab-btn {
+  flex: 1 0 auto;
+  padding: 12px 8px;
+  background: none;
+  border: none;
+  border-top: 2px solid transparent; /* activeの時に太さがずれないよう、非activeでも枠を確保しておく */
+  color: var(--text-dim);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-top: 2px solid var(--accent);
+}
+
+main {
+  padding: 16px;
+  /* 下部固定タブ(だいたい56px)+ホームバー分、コンテンツが隠れないよう余白を確保 */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.placeholder {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ---------- 登録情報タブ内のサブタブ ---------- */
+
+.subtabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.subtab-btn,
+.venue-category-btn {
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.subtab-btn.active,
+.venue-category-btn.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+.subtab-content {
+  display: none;
+}
+
+.subtab-content.active {
+  display: block;
+}
+
+.subtabs-small {
+  margin-bottom: 12px;
+}
+
+/* ---------- 登録フォーム(店舗・機種・場・レート共通) ---------- */
+
+.reg-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.reg-form input[type="text"],
+.reg-form input[type="number"],
+.reg-form select {
+  flex: 1 1 140px;
+  padding: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.reg-form button[type="submit"] {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.rate-exchange-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 100%;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.rate-exchange-row input {
+  flex: 1 1 80px;
+}
+
+/* ---------- 登録済み一覧(店舗・機種・場・レート・会員カード共通) ---------- */
+
+.reg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reg-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.reg-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0; /* テキストが長い時に折り返せるようにする */
+}
+
+.reg-item-name {
+  font-size: 14px;
+}
+
+.reg-item-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.reg-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.reg-item-actions button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rate-btn {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.delete-btn {
+  background: none;
+  color: var(--danger);
+  border: 1px solid var(--danger) !important;
+}
+
+/* ---------- モーダル(レート管理) ---------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  z-index: 30;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-box {
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--bg);
+  border-radius: 16px 16px 0 0;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.modal-header h2 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ---------- 収支入力(パチンコ・スロットセッション) ---------- */
+
+.session-screen {
+  display: none;
+}
+
+.session-screen.active {
+  display: block;
+}
+
+.screen-title {
+  font-size: 16px;
+  margin: 0 0 16px;
+}
+
+.field-group {
+  margin-bottom: 16px;
+}
+
+.field-group.hidden {
+  display: none;
+}
+
+.field-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.field-group select,
+.field-group input[type="number"] {
+  width: 100%;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepper-row input {
+  text-align: center;
+}
+
+.stepper-btn {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.primary-btn {
+  flex: 1;
+  padding: 14px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.secondary-btn {
+  flex: 1;
+  padding: 14px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.toggle-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.result-panel {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.result-panel.hidden {
+  display: none;
+}
+
+.result-panel p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.result-panel strong {
+  font-size: 20px;
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- カレンダー画面 ---------- */
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.calendar-header h2 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.calendar-day.empty {
+  background: none;
+  cursor: default;
+}
+
+.calendar-day.today {
+  border-color: var(--accent);
+}
+
+.calendar-day.selected {
+  background: var(--surface-2);
+}
+
+.calendar-day .day-amount {
+  font-size: 10px;
+}
+
+.calendar-day .day-amount.positive {
+  color: var(--accent);
+}
+
+.calendar-day .day-amount.negative {
+  color: var(--danger);
+}
+
+.calendar-total {
+  text-align: right;
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.day-detail {
+  margin-top: 20px;
+}
+
+.day-detail h3 {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+.day-record-item {
+  margin-bottom: 8px;
+  background: var(--surface);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.day-record-item .reg-item {
+  margin-bottom: 0;
+  background: none;
+  border-radius: 0;
+}
+
+.day-record-item .reg-item-actions {
+  padding: 0 12px 10px;
+  justify-content: flex-end;
+}
+
+.fab-btn {
+  position: fixed;
+  right: 20px;
+  bottom: calc(88px + env(safe-area-inset-bottom)); /* 下部タブに被らない高さ */
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 15;
+  display: none;
+}
+
+#screen-calendar.active ~ .fab-btn {
+  display: block;
+}
+
+.text-btn {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* データが消えない「戻る」専用。中断・削除のようなdanger色とは意図的に分けている */
+.text-btn-neutral {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ---------- 収支分析: 共通のサブタブ(登録情報とはクラスを分けている) ---------- */
+
+.analysis-tab-btn {
+  padding: 8px 4px;
+  margin-right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.analysis-tab-btn.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+.analysis-tab-content {
+  display: none;
+}
+
+.analysis-tab-content.active {
+  display: block;
+}
+
+/* ---------- 収支分析: 概要 ---------- */
+
+.period-type-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.period-type-btn {
+  flex: 1;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.period-type-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.period-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.stat-box:first-child {
+  grid-column: span 2;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.stat-box:first-child .stat-value {
+  font-size: 24px;
+}
+
+.section-heading {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 24px 0 10px;
+}
+
+.chart-container {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.chart-container .empty-chart-message {
+  padding: 30px 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.tax-gauge-bar {
+  height: 14px;
+  background: var(--surface);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.tax-gauge-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 7px;
+  transition: width 0.3s ease;
+}
+
+.tax-gauge-text {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.line-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.stat-value.positive {
+  color: var(--accent);
+}
+
+.stat-value.negative {
+  color: var(--danger);
+}
+
+/* ---------- 収支分析: 項目別 ---------- */
+
+.toggle-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.group-by-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.group-by-btn {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.group-by-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.breakdown-item-sub2 {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.catmain-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.catmain-btn {
+  flex: 1;
+  padding: 10px 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.catmain-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.catmain-content {
+  display: none;
+}
+
+.catmain-content.active {
+  display: block;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: -4px 0 12px;
+}
+
+.toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.reg-item.clickable-item {
+  cursor: pointer;
+}
+
+.reg-item.clickable-item:active {
+  background: var(--surface-2);
+}
+
+/* ---------- カテゴリ選択画面 ---------- */
+
+.category-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.category-choice-btn {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ---------- 競馬・ボートレース入力 ---------- */
+
+.bet-total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.confirm-text {
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: var(--surface);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.confirm-text strong {
+  color: var(--text);
+}
