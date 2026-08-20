@@ -57,12 +57,12 @@ body {
 
 .tab-btn {
   flex: 1 0 auto;
-  padding: 16px 8px;
+  padding: 20px 8px;
   background: none;
   border: none;
   border-top: 2px solid transparent; /* activeの時に太さがずれないよう、非activeでも枠を確保しておく */
   color: var(--text-dim);
-  font-size: 14px;
+  font-size: 16px;
   white-space: nowrap;
   cursor: pointer;
 }
