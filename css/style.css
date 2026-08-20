@@ -9,6 +9,7 @@
   --accent: #4ade80;
   --danger: #f87171;
   --border: #3a3a3a;
+  --select: #60a5fa; /* カレンダーで「選択中」を示す専用の色。収支の緑/赤と紛れないよう別の色にしている */
 }
 
 /* どの要素にも使える汎用の非表示クラス。個別のclass.hiddenより優先させたいので!importantを使う */
@@ -56,12 +57,12 @@ body {
 
 .tab-btn {
   flex: 1 0 auto;
-  padding: 12px 8px;
+  padding: 16px 8px;
   background: none;
   border: none;
   border-top: 2px solid transparent; /* activeの時に太さがずれないよう、非activeでも枠を確保しておく */
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -73,8 +74,8 @@ body {
 
 main {
   padding: 16px;
-  /* 下部固定タブ(だいたい56px)+ホームバー分、コンテンツが隠れないよう余白を確保 */
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  /* タブの高さを広げた分、コンテンツが隠れないよう余白も増やしておく */
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
 }
 
 .tab-content {
@@ -472,7 +473,8 @@ main {
 }
 
 .calendar-day.selected {
-  background: var(--surface-2);
+  background: rgba(96, 165, 250, 0.18);
+  border-color: var(--select);
 }
 
 .calendar-day .day-amount {
@@ -525,7 +527,7 @@ main {
 .fab-btn {
   position: fixed;
   right: 20px;
-  bottom: calc(88px + env(safe-area-inset-bottom)); /* 下部タブに被らない高さ */
+  bottom: calc(96px + env(safe-area-inset-bottom)); /* 下部タブに被らない高さ */
   width: 56px;
   height: 56px;
   border-radius: 50%;

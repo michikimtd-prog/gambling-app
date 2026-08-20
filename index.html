@@ -79,10 +79,11 @@
         </div>
 
         <div class="field-group hidden" id="cardBalanceInfo">
-          <label class="checkbox-label">
-            <input type="checkbox" id="sessionUseCardInput" />
-            会員カードを使う(残高: <span id="cardBalanceText">0</span>個)
-          </label>
+          <label>会員カードから使う数(残高: <span id="cardBalanceText">0</span>個)</label>
+          <div class="stepper-row">
+            <input type="number" id="sessionUseCardInput" value="0" min="0" />
+            <button type="button" class="stepper-btn" id="useAllCardBtn">全部使う</button>
+          </div>
         </div>
 
         <div class="field-group">
@@ -377,6 +378,11 @@
 
       <!-- ② 機種登録 -->
       <section class="subtab-content" id="subtab-models">
+        <nav class="subtabs subtabs-small">
+          <button class="model-category-btn active" data-category="パチンコ">パチンコ機種</button>
+          <button class="model-category-btn" data-category="スロット">スロット機種</button>
+        </nav>
+
         <form id="modelForm" class="reg-form">
           <input type="text" id="modelNameInput" placeholder="機種名" required />
           <button type="submit">機種を追加</button>

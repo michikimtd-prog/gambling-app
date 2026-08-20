@@ -301,9 +301,18 @@ async function populateStoreSelect() {
   });
 }
 
-async function populateModelSelect() {
-  const models = await dbGetAll(MODELS_TABLE);
+async function populateModelSelect(category) {
   const selectEl = document.getElementById("sessionModelSelect");
+
+  if (!category) {
+    selectEl.innerHTML = `<option value="">先にレートを選んでください</option>`;
+    selectEl.disabled = true;
+    return;
+  }
+
+  // インデックスを使って、レートと同じカテゴリ(パチンコ/スロット)の機種だけを表示する
+  const models = await dbGetByIndex(MODELS_TABLE, "by_category", category);
+  selectEl.disabled = false;
   selectEl.innerHTML = `<option value="">選択してください</option>`;
   models.forEach((model) => {
     selectEl.innerHTML += `<option value="${model.id}">${model.name}</option>`;
@@ -321,6 +330,7 @@ document.getElementById("sessionStoreSelect").addEventListener("change", async (
     rateSelectEl.disabled = true;
     cardInfoEl.classList.add("hidden");
     currentStore = null;
+    populateModelSelect(null);
     return;
   }
 
@@ -335,17 +345,26 @@ document.getElementById("sessionStoreSelect").addEventListener("change", async (
 
   // 会員カードがある店舗の場合だけ「会員カードを使う」の欄を表示する
   cardInfoEl.classList.toggle("hidden", !currentStore.hasMemberCard);
+  populateModelSelect(null); // 店舗を変えたら機種選択も一旦リセットする
 });
 
-// レートを選んだら、そのレートの会員カード残高を表示する
+// レートを選んだら、そのレートの会員カード残高を表示し、
+// 同じカテゴリ(パチンコ/スロット)の機種だけを機種選択肢に表示する
 document.getElementById("sessionRateSelect").addEventListener("change", async (event) => {
   const rateId = Number(event.target.value);
   if (!rateId) {
     currentRate = null;
+    populateModelSelect(null);
     return;
   }
   currentRate = await dbGet(RATES_TABLE, rateId);
   document.getElementById("cardBalanceText").textContent = currentRate.cardBalance;
+  populateModelSelect(currentRate.category);
+});
+
+document.getElementById("useAllCardBtn").addEventListener("click", () => {
+  if (!currentRate) return;
+  document.getElementById("sessionUseCardInput").value = currentRate.cardBalance;
 });
 
 document.getElementById("sessionStartBtn").addEventListener("click", async () => {
@@ -362,11 +381,14 @@ document.getElementById("sessionStartBtn").addEventListener("click", async () =>
   }
   const modelName = modelSelectEl.selectedOptions[0].textContent;
 
-  const useCard = document.getElementById("sessionUseCardInput").checked;
   const startGameCount = nonNeg(document.getElementById("sessionStartGameCountInput").value);
 
-  // 会員カードを使う場合、カードの残高を丸ごと「所持している玉/メダル」として持ってくる
-  const startBallsFromCard = useCard ? currentRate.cardBalance : 0;
+  // 会員カードから使う数(0〜残高の範囲に収める。上限を超えていたら止める)
+  const startBallsFromCard = nonNeg(document.getElementById("sessionUseCardInput").value);
+  if (currentStore.hasMemberCard && startBallsFromCard > currentRate.cardBalance) {
+    alert(`会員カードの残高(${currentRate.cardBalance}個)を超えています`);
+    return;
+  }
 
   const dateStr = formatDate(new Date());
 
@@ -383,7 +405,7 @@ document.getElementById("sessionStartBtn").addEventListener("click", async () =>
     modelId: modelId,
     modelName: modelName,
     startGameCount: startGameCount,
-    usedMemberCard: useCard,
+    usedMemberCard: startBallsFromCard > 0,
     startBallsFromCard: startBallsFromCard,
     investmentAmount: 0,
     currentGameCount: startGameCount,
@@ -397,9 +419,9 @@ document.getElementById("sessionStartBtn").addEventListener("click", async () =>
   newSession.id = currentSessionId;
   currentSession = newSession;
 
-  // カードの残高を使い切ったので、レート側の残高を0に更新しておく
-  if (useCard) {
-    currentRate.cardBalance = 0;
+  // 使った分だけ、レート側の残高から差し引く(全部ではなく一部だけ使うこともできる)
+  if (startBallsFromCard > 0) {
+    currentRate.cardBalance -= startBallsFromCard;
     await dbUpdate(RATES_TABLE, currentRate);
   }
 
@@ -635,8 +657,13 @@ function resetStartForm() {
   document.getElementById("sessionRateSelect").innerHTML = `<option value="">先に店舗を選んでください</option>`;
   document.getElementById("sessionRateSelect").disabled = true;
   document.getElementById("cardBalanceInfo").classList.add("hidden");
-  document.getElementById("sessionUseCardInput").checked = false;
+  document.getElementById("sessionUseCardInput").value = 0;
   document.getElementById("sessionStartGameCountInput").value = 0;
+
+  // 登録情報タブで店舗・機種を追加した後、リロードしなくても反映されるよう、
+  // この画面を開くたびに選択肢を作り直す(前回はアプリ起動時の1回しか作っていなかった)
+  populateStoreSelect();
+  populateModelSelect();
 }
 
 document.getElementById("cancelStartBtn").addEventListener("click", () => {

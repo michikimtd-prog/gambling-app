@@ -174,8 +174,21 @@ document.getElementById("rateForm").addEventListener("submit", async (event) => 
 // 3. 機種
 // ------------------------------------------------------------
 
+// 今どちらのカテゴリを表示中かを覚えておく変数(場のcurrentVenueCategoryと同じ考え方)
+let currentModelCategory = "パチンコ";
+
+document.querySelectorAll(".model-category-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".model-category-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentModelCategory = btn.dataset.category;
+    renderModels();
+  });
+});
+
 async function renderModels() {
-  const models = await dbGetAll(MODELS_TABLE);
+  // インデックスを使って、今選ばれているカテゴリの機種だけを取得する
+  const models = await dbGetByIndex(MODELS_TABLE, "by_category", currentModelCategory);
   const listEl = document.getElementById("modelList");
   listEl.innerHTML = "";
 
@@ -204,7 +217,7 @@ document.getElementById("modelForm").addEventListener("submit", async (event) =>
   event.preventDefault();
   const nameInput = document.getElementById("modelNameInput");
 
-  await dbAdd(MODELS_TABLE, { name: nameInput.value });
+  await dbAdd(MODELS_TABLE, { name: nameInput.value, category: currentModelCategory });
 
   nameInput.value = "";
   renderModels();

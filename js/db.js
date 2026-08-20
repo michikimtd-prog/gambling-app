@@ -18,7 +18,7 @@ const DB_NAME = "gambling-app-db";
 // 前回はテスト用のtestStoreだけ(バージョン1)だったが、
 // 今回オブジェクトストアの構成そのものを変更するのでバージョンを上げる。
 // IndexedDBは「バージョン番号が前回より上がった時だけ」onupgradeneededを呼ぶ仕組み。
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 // オブジェクトストア(≒テーブル)の名前を定数にまとめておく。
 // 文字列を直接あちこちに書くとタイプミスに気づきにくいため。
@@ -65,7 +65,25 @@ function openDB() {
       }
 
       if (!db.objectStoreNames.contains(MODELS_TABLE)) {
-        db.createObjectStore(MODELS_TABLE, { keyPath: "id", autoIncrement: true });
+        // 新規インストールの場合はここでカテゴリのインデックスも一緒に作る
+        const modelsStore = db.createObjectStore(MODELS_TABLE, { keyPath: "id", autoIncrement: true });
+        modelsStore.createIndex("by_category", "category", { unique: false });
+      } else {
+        // 既存のテーブルにカテゴリが無いバージョンから上がってきた場合は、ここでインデックスを追加し、
+        // 既存データにも仮のカテゴリ("パチンコ")を補完しておく。実際はスロットだった機種があれば、
+        // 登録情報タブで一度削除し、カテゴリを選び直して登録し直してもらう必要がある。
+        const modelsStore = event.target.transaction.objectStore(MODELS_TABLE);
+        if (!modelsStore.indexNames.contains("by_category")) {
+          modelsStore.createIndex("by_category", "category", { unique: false });
+          modelsStore.openCursor().onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (!cursor) return;
+            if (!cursor.value.category) {
+              cursor.update({ ...cursor.value, category: "パチンコ" });
+            }
+            cursor.continue();
+          };
+        }
       }
 
       if (!db.objectStoreNames.contains(VENUES_TABLE)) {
