@@ -57,12 +57,12 @@ body {
 
 .tab-btn {
   flex: 1 0 auto;
-  padding: 60px 8px;
+  padding: 40px 8px;
   background: none;
   border: none;
   border-top: 2px solid transparent; /* activeの時に太さがずれないよう、非activeでも枠を確保しておく */
   color: var(--text-dim);
-  font-size: 40px;
+  font-size: 25px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -75,7 +75,7 @@ body {
 main {
   padding: 16px;
   /* タブの高さを広げた分、コンテンツが隠れないよう余白も増やしておく */
-  padding-bottom: calc(128px + env(safe-area-inset-bottom));
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
 }
 
 .tab-content {
@@ -527,7 +527,7 @@ main {
 .fab-btn {
   position: fixed;
   right: 20px;
-  bottom: calc(140px + env(safe-area-inset-bottom)); /* 下部タブに被らない高さ */
+  bottom: calc(120px + env(safe-area-inset-bottom)); /* 下部タブに被らない高さ */
   width: 56px;
   height: 56px;
   border-radius: 50%;
