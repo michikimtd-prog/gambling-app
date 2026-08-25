@@ -75,7 +75,7 @@ body {
 main {
   padding: 16px;
   /* タブの高さを広げた分、コンテンツが隠れないよう余白も増やしておく */
-  padding-bottom: calc(93px + env(safe-area-inset-bottom));
+  padding-bottom: calc(102px + env(safe-area-inset-bottom));
 }
 
 .tab-content {
@@ -527,7 +527,7 @@ main {
 .fab-btn {
   position: fixed;
   right: 20px;
-  bottom: calc(105px + env(safe-area-inset-bottom)); /* 下部タブに被らない高さ */
+  bottom: calc(114px + env(safe-area-inset-bottom)); /* 下部タブに被らない高さ */
   width: 56px;
   height: 56px;
   border-radius: 50%;
