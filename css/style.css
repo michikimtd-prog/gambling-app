@@ -57,7 +57,7 @@ body {
 
 .tab-btn {
   flex: 1 0 auto;
-  padding: 25px 8px;
+  padding: 12px 8px 38px 8px;
   background: none;
   border: none;
   border-top: 2px solid transparent; /* activeの時に太さがずれないよう、非activeでも枠を確保しておく */
