@@ -1,6 +1,6 @@
 // キャッシュに名前をつける。ファイルの中身を変更してアップデートしたら
 // この名前(バージョン番号)を変えることで、古いキャッシュを破棄して新しいものに入れ替える
-const CACHE_NAME = "gambling-app-v22";
+const CACHE_NAME = "gambling-app-v23";
 
 // オフラインでも開けるようにキャッシュしておくファイル一覧
 const FILES_TO_CACHE = [
