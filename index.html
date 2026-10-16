@@ -17,7 +17,7 @@
 <body>
 
   <header class="app-header">
-    <h1>収支入力</h1>
+    <h1>収支管理</h1>
   </header>
 
   <!-- 最上位のタブ: 収支入力 / 収支分析 / 登録情報 -->
@@ -56,6 +56,7 @@
           <button class="category-choice-btn" data-category-choice="pachinko">パチンコ・スロット</button>
           <button class="category-choice-btn" data-category-choice="競馬">競馬</button>
           <button class="category-choice-btn" data-category-choice="ボートレース">ボートレース</button>
+          <button class="category-choice-btn" data-category-choice="noriuchi">ノリ打ち</button>
         </div>
         <button class="text-btn-neutral" id="cancelCategorySelectBtn">← カレンダーに戻る</button>
       </div>
@@ -200,6 +201,44 @@
 
         <button id="saveRaceBtn" class="primary-btn" style="margin-top: 16px;">保存</button>
         <button id="cancelRaceBtn" class="text-btn-neutral">← カレンダーに戻る</button>
+      </div>
+
+      <!-- 画面: ノリ打ち(友達と一緒に打つ時のシンプルな収支記録) -->
+      <div class="session-screen" id="screen-groupplay">
+        <h2 class="screen-title">ノリ打ち記録</h2>
+
+        <div class="field-group">
+          <label>カテゴリ</label>
+          <select id="groupPlayCategoryInput">
+            <option value="パチンコ">パチンコ</option>
+            <option value="スロット">スロット</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label>店舗(任意)</label>
+          <select id="groupPlayStoreSelect">
+            <option value="">指定なし</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label>投資金額(円)</label>
+          <input type="number" id="groupPlayInvestmentInput" value="0" min="0" />
+        </div>
+
+        <div class="field-group">
+          <label>回収金額(円)</label>
+          <input type="number" id="groupPlayCollectionInput" value="0" min="0" />
+        </div>
+
+        <div class="field-group">
+          <label>メモ(任意・誰と打ったかなど)</label>
+          <input type="text" id="groupPlayMemoInput" placeholder="例: ○○と2人で" />
+        </div>
+
+        <button id="saveGroupPlayBtn" class="primary-btn">保存</button>
+        <button id="cancelGroupPlayBtn" class="text-btn-neutral">← カレンダーに戻る</button>
       </div>
 
     </section>
@@ -503,6 +542,7 @@
   <script src="js/registration.js"></script>
   <script src="js/session.js"></script>
   <script src="js/race.js"></script>
+  <script src="js/groupplay.js"></script>
   <script src="js/analysis.js"></script>
   <script src="js/app.js"></script>
 </body>

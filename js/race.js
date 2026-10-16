@@ -50,6 +50,9 @@ document.querySelectorAll(".category-choice-btn").forEach((btn) => {
       // パチンコ・スロットは既存の開始前画面(session.js側)を使う
       resetStartForm();
       showSessionScreen("screen-start");
+    } else if (choice === "noriuchi") {
+      // ノリ打ちはgroupplay.js側の画面を使う
+      openGroupPlayScreen();
     } else {
       openRaceScreen(choice);
     }
@@ -72,11 +75,12 @@ async function openRaceScreen(category) {
   document.getElementById("raceScreenTitle").textContent = `${category}入力`;
   document.getElementById("saveRaceBtn").textContent = "保存";
 
-  const venues = await dbGetByIndex(VENUES_TABLE, "by_category", category);
+  const venues = sortFavoritesFirst(await dbGetByIndex(VENUES_TABLE, "by_category", category));
   const venueSelectEl = document.getElementById("raceVenueSelect");
   venueSelectEl.innerHTML = `<option value="">選択してください</option>`;
   venues.forEach((venue) => {
-    venueSelectEl.innerHTML += `<option value="${venue.id}">${venue.name}</option>`;
+    const label = venue.isFavorite ? `★ ${venue.name}` : venue.name;
+    venueSelectEl.innerHTML += `<option value="${venue.id}">${label}</option>`;
   });
 
   renderBetList();

@@ -56,7 +56,14 @@ async function getAllProfitRecords() {
     };
   });
 
-  return [...sessionRecords, ...raceRecords];
+  const groupPlays = await dbGetAll(GROUP_PLAY_TABLE);
+  const groupPlayRecords = groupPlays.map((g) => ({
+    date: g.date,
+    investment: g.investmentAmount,
+    collection: g.collectedYen,
+  }));
+
+  return [...sessionRecords, ...raceRecords, ...groupPlayRecords];
 }
 
 /** パチンコ・スロットの完了済みセッションを、店舗・レート・機種などの詳細情報を

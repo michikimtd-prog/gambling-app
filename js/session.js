@@ -82,6 +82,15 @@ async function getMonthlyProfitByDate(year, month) {
     profitByDate[race.date] = (profitByDate[race.date] || 0) + profit;
   });
 
+  // ノリ打ち分
+  const allGroupPlays = await dbGetAll(GROUP_PLAY_TABLE);
+  allGroupPlays
+    .filter((g) => g.date.startsWith(monthPrefix))
+    .forEach((g) => {
+      const profit = g.collectedYen - g.investmentAmount;
+      profitByDate[g.date] = (profitByDate[g.date] || 0) + profit;
+    });
+
   return profitByDate;
 }
 
@@ -142,11 +151,12 @@ async function renderDayDetail(dateStr) {
   const sessions = await dbGetByIndex(PACHINKO_SESSIONS_TABLE, "by_date", dateStr);
   const completedSessions = sessions.filter((s) => s.status === "completed");
   const races = await dbGetByIndex(RACES_TABLE, "by_date", dateStr);
+  const groupPlays = await dbGetByIndex(GROUP_PLAY_TABLE, "by_date", dateStr);
 
   const listEl = document.getElementById("dayDetailList");
   listEl.innerHTML = "";
 
-  if (completedSessions.length === 0 && races.length === 0) {
+  if (completedSessions.length === 0 && races.length === 0 && groupPlays.length === 0) {
     listEl.innerHTML = `<p class="placeholder">この日の記録はまだありません。</p>`;
     return;
   }
@@ -216,6 +226,35 @@ async function renderDayDetail(dateStr) {
       await renderDayDetail(dateStr);
     });
   }
+
+  // ノリ打ちの記録(修正機能は無く、削除して記録し直す形にしている)
+  groupPlays.forEach((g) => {
+    const profit = g.collectedYen - g.investmentAmount;
+    const li = document.createElement("li");
+    li.className = "day-record-item";
+    li.innerHTML = `
+      <div class="reg-item">
+        <div class="reg-item-main">
+          <span class="reg-item-name">ノリ打ち / ${g.category}${g.storeName ? ` / ${g.storeName}` : ""}</span>
+          <span class="reg-item-sub">投資 ¥${g.investmentAmount.toLocaleString()} / 回収 ¥${g.collectedYen.toLocaleString()}${g.memo ? ` / ${g.memo}` : ""}</span>
+        </div>
+        <div class="reg-item-main" style="align-items: flex-end;">
+          <span class="day-amount ${profit >= 0 ? "positive" : "negative"}">${profit >= 0 ? "+" : ""}${profit.toLocaleString()}円</span>
+        </div>
+      </div>
+      <div class="reg-item-actions">
+        <button class="delete-btn delete-groupplay-btn">削除</button>
+      </div>
+    `;
+    listEl.appendChild(li);
+
+    li.querySelector(".delete-groupplay-btn").addEventListener("click", async () => {
+      if (!confirm("このノリ打ちの記録を削除しますか?")) return;
+      await dbDelete(GROUP_PLAY_TABLE, g.id);
+      await renderCalendar();
+      await renderDayDetail(dateStr);
+    });
+  });
 }
 
 // ------------------------------------------------------------
@@ -293,11 +332,13 @@ document.getElementById("calNextBtn").addEventListener("click", () => {
 // ------------------------------------------------------------
 
 async function populateStoreSelect() {
-  const stores = await dbGetAll(STORES_TABLE);
+  // sortFavoritesFirstはregistration.jsで定義した共通関数(お気に入りを先頭に並べる)
+  const stores = sortFavoritesFirst(await dbGetAll(STORES_TABLE));
   const selectEl = document.getElementById("sessionStoreSelect");
   selectEl.innerHTML = `<option value="">選択してください</option>`;
   stores.forEach((store) => {
-    selectEl.innerHTML += `<option value="${store.id}">${store.name}</option>`;
+    const label = store.isFavorite ? `★ ${store.name}` : store.name;
+    selectEl.innerHTML += `<option value="${store.id}">${label}</option>`;
   });
 }
 
@@ -311,11 +352,12 @@ async function populateModelSelect(category) {
   }
 
   // インデックスを使って、レートと同じカテゴリ(パチンコ/スロット)の機種だけを表示する
-  const models = await dbGetByIndex(MODELS_TABLE, "by_category", category);
+  const models = sortFavoritesFirst(await dbGetByIndex(MODELS_TABLE, "by_category", category));
   selectEl.disabled = false;
   selectEl.innerHTML = `<option value="">選択してください</option>`;
   models.forEach((model) => {
-    selectEl.innerHTML += `<option value="${model.id}">${model.name}</option>`;
+    const label = model.isFavorite ? `★ ${model.name}` : model.name;
+    selectEl.innerHTML += `<option value="${model.id}">${label}</option>`;
   });
 }
 

@@ -62,7 +62,7 @@ body {
   border: none;
   border-top: 2px solid transparent; /* activeの時に太さがずれないよう、非activeでも枠を確保しておく */
   color: var(--text-dim);
-  font-size: 20px;
+  font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -235,6 +235,20 @@ main {
 .rate-btn {
   background: var(--surface-2);
   color: var(--text);
+}
+
+.favorite-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  padding: 0 6px;
+  cursor: pointer;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+.favorite-btn.active {
+  color: #fbbf24; /* お気に入りは黄色で目立たせる */
 }
 
 .delete-btn {

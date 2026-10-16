@@ -28,9 +28,14 @@ document.querySelectorAll(".subtab-btn").forEach((btn) => {
 // 2. 店舗
 // ------------------------------------------------------------
 
+/** お気に入り(isFavorite)を先頭に並べ替える。店舗・機種・場のどの一覧でも使う共通処理。 */
+function sortFavoritesFirst(items) {
+  return [...items].sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0));
+}
+
 /** 店舗一覧を再取得して画面に描画し直す。追加・削除のたびに呼ぶ。 */
 async function renderStores() {
-  const stores = await dbGetAll(STORES_TABLE);
+  const stores = sortFavoritesFirst(await dbGetAll(STORES_TABLE));
   const listEl = document.getElementById("storeList");
 
   // 中身を一旦空にしてから、取得したデータの数だけ<li>を作り直す。
@@ -46,11 +51,18 @@ async function renderStores() {
         <span class="reg-item-sub">${store.hasMemberCard ? "会員カードあり" : "会員カードなし"}</span>
       </div>
       <div class="reg-item-actions">
+        <button class="favorite-btn ${store.isFavorite ? "active" : ""}" data-id="${store.id}">${store.isFavorite ? "★" : "☆"}</button>
         <button class="rate-btn" data-id="${store.id}">レート管理</button>
         <button class="delete-btn" data-id="${store.id}">削除</button>
       </div>
     `;
     listEl.appendChild(li);
+
+    li.querySelector(".favorite-btn").addEventListener("click", async () => {
+      store.isFavorite = !store.isFavorite;
+      await dbUpdate(STORES_TABLE, store);
+      renderStores();
+    });
 
     // 「レート管理」ボタン: このliの中だけで完結する処理なので、
     // 描画のタイミングでイベントを直接つけてしまう
@@ -188,7 +200,7 @@ document.querySelectorAll(".model-category-btn").forEach((btn) => {
 
 async function renderModels() {
   // インデックスを使って、今選ばれているカテゴリの機種だけを取得する
-  const models = await dbGetByIndex(MODELS_TABLE, "by_category", currentModelCategory);
+  const models = sortFavoritesFirst(await dbGetByIndex(MODELS_TABLE, "by_category", currentModelCategory));
   const listEl = document.getElementById("modelList");
   listEl.innerHTML = "";
 
@@ -200,10 +212,17 @@ async function renderModels() {
         <span class="reg-item-name">${model.name}</span>
       </div>
       <div class="reg-item-actions">
+        <button class="favorite-btn ${model.isFavorite ? "active" : ""}" data-id="${model.id}">${model.isFavorite ? "★" : "☆"}</button>
         <button class="delete-btn" data-id="${model.id}">削除</button>
       </div>
     `;
     listEl.appendChild(li);
+
+    li.querySelector(".favorite-btn").addEventListener("click", async () => {
+      model.isFavorite = !model.isFavorite;
+      await dbUpdate(MODELS_TABLE, model);
+      renderModels();
+    });
 
     li.querySelector(".delete-btn").addEventListener("click", async () => {
       if (!confirm(`「${model.name}」を削除しますか?`)) return;
@@ -243,7 +262,7 @@ async function renderVenues() {
   // すべて取得してから、今選ばれているカテゴリだけに絞り込む。
   // (件数が少ない前提のアプリなので、インデックス検索でなくても問題ない範囲)
   const allVenues = await dbGetAll(VENUES_TABLE);
-  const venues = allVenues.filter((v) => v.category === currentVenueCategory);
+  const venues = sortFavoritesFirst(allVenues.filter((v) => v.category === currentVenueCategory));
 
   const listEl = document.getElementById("venueList");
   listEl.innerHTML = "";
@@ -256,10 +275,17 @@ async function renderVenues() {
         <span class="reg-item-name">${venue.name}</span>
       </div>
       <div class="reg-item-actions">
+        <button class="favorite-btn ${venue.isFavorite ? "active" : ""}" data-id="${venue.id}">${venue.isFavorite ? "★" : "☆"}</button>
         <button class="delete-btn" data-id="${venue.id}">削除</button>
       </div>
     `;
     listEl.appendChild(li);
+
+    li.querySelector(".favorite-btn").addEventListener("click", async () => {
+      venue.isFavorite = !venue.isFavorite;
+      await dbUpdate(VENUES_TABLE, venue);
+      renderVenues();
+    });
 
     li.querySelector(".delete-btn").addEventListener("click", async () => {
       if (!confirm(`「${venue.name}」を削除しますか?`)) return;

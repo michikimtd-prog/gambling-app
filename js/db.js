@@ -18,7 +18,7 @@ const DB_NAME = "gambling-app-db";
 // 前回はテスト用のtestStoreだけ(バージョン1)だったが、
 // 今回オブジェクトストアの構成そのものを変更するのでバージョンを上げる。
 // IndexedDBは「バージョン番号が前回より上がった時だけ」onupgradeneededを呼ぶ仕組み。
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 // オブジェクトストア(≒テーブル)の名前を定数にまとめておく。
 // 文字列を直接あちこちに書くとタイプミスに気づきにくいため。
@@ -29,6 +29,7 @@ const VENUES_TABLE = "venues"; // 競馬場・ボート場マスタ
 const PACHINKO_SESSIONS_TABLE = "pachinkoSessions"; // パチンコ・スロットのセッション記録
 const RACES_TABLE = "races"; // 競馬・ボートレースのレース記録(親)
 const BETS_TABLE = "bets"; // レースごとの投票形式別の賭け記録(子)
+const GROUP_PLAY_TABLE = "groupPlayRecords"; // ノリ打ち(友達と一緒に打つ時)の記録
 
 let dbInstance = null;
 
@@ -108,6 +109,11 @@ function openDB() {
         const betsStore = db.createObjectStore(BETS_TABLE, { keyPath: "id", autoIncrement: true });
         // 「このレースに紐づく賭けだけを集める」ために使う(店舗とレートの関係と同じ考え方)
         betsStore.createIndex("by_raceId", "raceId", { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(GROUP_PLAY_TABLE)) {
+        const groupPlayStore = db.createObjectStore(GROUP_PLAY_TABLE, { keyPath: "id", autoIncrement: true });
+        groupPlayStore.createIndex("by_date", "date", { unique: false });
       }
     };
 
