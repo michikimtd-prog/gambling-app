@@ -63,7 +63,16 @@ async function getAllProfitRecords() {
     collection: g.collectedYen,
   }));
 
-  return [...sessionRecords, ...raceRecords, ...groupPlayRecords];
+  // 換金は「換金した日の収入」として数える(勝ち負けの回数には含めないのでisCashoutの目印を付ける)
+  const cashouts = await dbGetAll(CASHOUTS_TABLE);
+  const cashoutRecords = cashouts.map((c) => ({
+    date: c.date,
+    investment: 0,
+    collection: c.yen,
+    isCashout: true,
+  }));
+
+  return [...sessionRecords, ...raceRecords, ...groupPlayRecords, ...cashoutRecords];
 }
 
 /** パチンコ・スロットの完了済みセッションを、店舗・レート・機種などの詳細情報を
@@ -303,8 +312,10 @@ function renderTaxGauge(allRecords) {
 function calcStats(records) {
   const investment = records.reduce((sum, r) => sum + r.investment, 0);
   const collection = records.reduce((sum, r) => sum + r.collection, 0);
-  const winCount = records.filter((r) => r.collection > r.investment).length;
-  const count = records.length;
+  // 換金は「1回の勝負」ではないので、勝率の分母・分子には含めない(金額の合計には含める)
+  const counted = records.filter((r) => !r.isCashout);
+  const winCount = counted.filter((r) => r.collection > r.investment).length;
+  const count = counted.length;
   return {
     investment,
     collection,
@@ -402,6 +413,7 @@ let activeCatMain = "pachi"; // "pachi" | "keiba" | "boat"
 let pachiUnitMode = "yen"; // "yen" | "balls"
 let pachiGroupBy = "store"; // "store" | "rate" | "model"
 let lastPachiSessions = []; // 店舗ドリルダウンで使うため、直近の描画に使ったセッション一覧を覚えておく
+let lastModelMakerById = {}; // 機種id → メーカー名(メーカー別の集計で使う)
 
 document.querySelectorAll(".catmain-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -422,7 +434,7 @@ function renderActiveCatMain() {
 
 /** セッション1件を、現金投資額と最終回収額(円)の記録に変換する。 */
 function yenRecord(s) {
-  return { investment: s.investmentAmount, collection: s.collectedYen };
+  return { investment: s.investmentAmount, collection: s.collectedYen, isCashout: !!s.isCashout };
 }
 
 /** セッション1件を、玉/メダル単位の投資数・獲得数の記録に変換する。
@@ -463,12 +475,38 @@ document.querySelectorAll(".pachi-group-btn").forEach((btn) => {
   });
 });
 
+/** 換金の記録を、セッションと同じ形(店舗名・レート名・金額)に見せかけたものに変換する。
+ *  円で見る時に、店舗別・レート別・パチンコ/スロット別の金額へ換金分を含めるために使う。 */
+function cashoutToPseudoSession(c) {
+  return {
+    isCashout: true,
+    date: c.date,
+    category: c.category,
+    storeName: c.storeName,
+    rateLabel: c.rateLabel,
+    modelId: null,
+    modelName: null,
+    investmentAmount: 0,
+    collectedYen: c.yen,
+    wins: [],
+  };
+}
+
 async function renderPachi() {
   const sessions = await getPeriodSessions();
-  lastPachiSessions = sessions; // 店舗ドリルダウン用に覚えておく
-  renderPachiCategoryList(sessions);
-  renderPachiGroupList(sessions);
-  renderPachiWeekdayChart(sessions);
+  const cashouts = (await dbGetAll(CASHOUTS_TABLE)).filter((c) => isInPeriod(c.date));
+  const pseudoCashouts = cashouts.map(cashoutToPseudoSession);
+
+  // メーカー別の集計用に、機種のidからメーカー名を引けるようにしておく
+  const models = await dbGetAll(MODELS_TABLE);
+  lastModelMakerById = Object.fromEntries(models.map((m) => [m.id, m.maker || ""]));
+
+  // 玉/メダル表示では換金(円)は関係ないので、円で見る時だけ一覧に含める
+  const listItems = pachiUnitMode === "yen" ? [...sessions, ...pseudoCashouts] : sessions;
+  lastPachiSessions = listItems; // 店舗ドリルダウン用に覚えておく
+  renderPachiCategoryList(listItems);
+  renderPachiGroupList(listItems);
+  renderPachiWeekdayChart([...sessions, ...pseudoCashouts]);
 }
 
 function renderPachiCategoryList(sessions) {
@@ -505,15 +543,20 @@ function renderPachiGroupList(sessions) {
   // rateLabelは登録時に「数字+パチ/スロ」で自動生成されているため、これ自体で
   // カテゴリも判別でき、店名を付け加える必要がない
   else if (pachiGroupBy === "rate") keyFn = (s) => s.rateLabel;
+  else if (pachiGroupBy === "maker") keyFn = (s) => lastModelMakerById[s.modelId] || "メーカー未登録";
   else keyFn = (s) => s.modelName;
 
-  // 玉/メダル表示の時、店舗別・機種別はパチンコとスロットが混ざりうるので、
+  // 換金の記録には機種が無いので、機種別・メーカー別の集計からは除く
+  const targetSessions =
+    pachiGroupBy === "model" || pachiGroupBy === "maker" ? sessions.filter((s) => !s.isCashout) : sessions;
+
+  // 玉/メダル表示の時、店舗別・機種別・メーカー別はパチンコとスロットが混ざりうるので、
   // グループ名にカテゴリを付け加えて必ず分ける(レート別はrateLabel自体で分かれるので対象外)
   const needsCategorySuffix = pachiUnitMode === "balls" && pachiGroupBy !== "rate";
   const finalKeyFn = needsCategorySuffix ? (s) => `${keyFn(s)}(${s.category})` : keyFn;
   const toRecord = pachiUnitMode === "yen" ? yenRecord : ballRecord;
 
-  const groups = groupBy(sessions, finalKeyFn);
+  const groups = groupBy(targetSessions, finalKeyFn);
   const entries = Object.entries(groups).map(([label, list]) => ({
     label,
     records: list.map(toRecord),
@@ -823,7 +866,9 @@ async function renderHitIntervals() {
   sessions.forEach((s) => {
     let prevGameCount = s.startGameCount;
     s.wins.forEach((w) => {
-      const interval = w.atGameCount - prevGameCount;
+      // 続けるたびにゲーム数を0に戻すようにしてからの記録は、当たり時に間隔(intervalGames)を保存している。
+      // それ以前の古い記録は、直前の当たりとのゲーム数の差で求める
+      const interval = w.intervalGames !== undefined ? w.intervalGames : w.atGameCount - prevGameCount;
       if (interval >= 0) {
         if (!intervalsByModel[s.modelName]) intervalsByModel[s.modelName] = [];
         intervalsByModel[s.modelName].push(interval);

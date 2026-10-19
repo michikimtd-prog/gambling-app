@@ -210,9 +210,11 @@ async function renderModels() {
     li.innerHTML = `
       <div class="reg-item-main">
         <span class="reg-item-name">${model.name}</span>
+        <span class="reg-item-sub">${model.maker ? model.maker : "メーカー未登録"}</span>
       </div>
       <div class="reg-item-actions">
         <button class="favorite-btn ${model.isFavorite ? "active" : ""}" data-id="${model.id}">${model.isFavorite ? "★" : "☆"}</button>
+        <button class="rate-btn edit-maker-btn">メーカー</button>
         <button class="delete-btn" data-id="${model.id}">削除</button>
       </div>
     `;
@@ -224,23 +226,47 @@ async function renderModels() {
       renderModels();
     });
 
+    // すでに登録済みの機種にも、あとからメーカーを入れられるようにする
+    li.querySelector(".edit-maker-btn").addEventListener("click", async () => {
+      const input = prompt(`「${model.name}」のメーカー名`, model.maker || "");
+      if (input === null) return; // キャンセル
+      model.maker = input.trim();
+      await dbUpdate(MODELS_TABLE, model);
+      renderModels();
+    });
+
     li.querySelector(".delete-btn").addEventListener("click", async () => {
       if (!confirm(`「${model.name}」を削除しますか?`)) return;
       await dbDelete(MODELS_TABLE, model.id);
       renderModels();
     });
   });
+
+  refreshMakerSuggestions();
 }
 
 document.getElementById("modelForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const nameInput = document.getElementById("modelNameInput");
+  const makerInput = document.getElementById("modelMakerInput");
 
-  await dbAdd(MODELS_TABLE, { name: nameInput.value, category: currentModelCategory });
+  await dbAdd(MODELS_TABLE, {
+    name: nameInput.value,
+    maker: makerInput.value.trim(),
+    category: currentModelCategory,
+  });
 
   nameInput.value = "";
+  // メーカー名は同じメーカーの機種を続けて登録することが多いので、入力欄はそのまま残しておく
   renderModels();
 });
+
+/** これまでに登録したメーカー名を、入力欄の候補(datalist)として出す。表記ゆれを防ぐため。 */
+async function refreshMakerSuggestions() {
+  const allModels = await dbGetAll(MODELS_TABLE);
+  const makers = [...new Set(allModels.map((m) => m.maker).filter((m) => m))];
+  document.getElementById("makerSuggestions").innerHTML = makers.map((m) => `<option value="${m}"></option>`).join("");
+}
 
 // ------------------------------------------------------------
 // 4. 場(競馬場・ボート場)
@@ -318,31 +344,130 @@ async function renderCards() {
   const listEl = document.getElementById("cardList");
   listEl.innerHTML = "";
 
-  // 会員カードがある店舗だけに絞り込む
-  const cardStores = stores.filter((s) => s.hasMemberCard);
-
-  cardStores.forEach((store) => {
+  stores.forEach((store) => {
     // このstoreに紐づくレートだけを、全レートの中から探す。
     // dbGetByIndexを使ってもよいが、店舗数が多くない前提なのでここではfilterで十分。
     const ratesForStore = allRates.filter((r) => r.storeId === store.id);
 
     ratesForStore.forEach((rate) => {
+      // 会員カードがある店舗は残高0でも表示し、無い店舗は「一時カード」に残高がある時だけ表示する
+      if (!store.hasMemberCard && !(rate.cardBalance > 0)) return;
+
+      const kind = store.hasMemberCard ? "会員カード" : "一時カード";
       const li = document.createElement("li");
       li.className = "reg-item";
       li.innerHTML = `
         <div class="reg-item-main">
           <span class="reg-item-name">${store.name} / ${rate.rateLabel}</span>
-          <span class="reg-item-sub">残高: ${rate.cardBalance}個</span>
+          <span class="reg-item-sub">${kind} 残高: ${rate.cardBalance.toLocaleString()}個</span>
+        </div>
+        <div class="reg-item-actions">
+          ${rate.cardBalance > 0 ? `<button class="rate-btn cashout-btn">換金</button>` : ""}
         </div>
       `;
       listEl.appendChild(li);
+
+      const cashoutBtn = li.querySelector(".cashout-btn");
+      if (cashoutBtn) cashoutBtn.addEventListener("click", () => openCashoutModal(store, rate));
     });
   });
 
   if (listEl.children.length === 0) {
-    listEl.innerHTML = `<p class="placeholder">会員カードが登録された店舗・レートはまだありません。</p>`;
+    listEl.innerHTML = `<p class="placeholder">残高のあるカードはまだありません。</p>`;
   }
 }
+
+// --- 換金モーダル ---
+
+let cashoutTarget = null; // { store, rate }
+
+function calcCashout(rate, balls) {
+  // 換金は「○○円につき△△個」の単位ごとにしかできないので、割り切れる分だけを換金する
+  const units = Math.floor(balls / rate.exchangeUnitsRequired);
+  return {
+    units,
+    consumedBalls: units * rate.exchangeUnitsRequired,
+    yen: units * rate.exchangeYenUnit,
+  };
+}
+
+function updateCashoutPreview() {
+  if (!cashoutTarget) return;
+  const { rate } = cashoutTarget;
+  const balls = nonNeg(document.getElementById("cashoutBallsInput").value);
+  const result = calcCashout(rate, balls);
+  const previewEl = document.getElementById("cashoutPreview");
+  if (balls > rate.cardBalance) {
+    previewEl.textContent = `残高(${rate.cardBalance.toLocaleString()}個)を超えています`;
+  } else if (result.units === 0) {
+    previewEl.textContent = `${rate.exchangeUnitsRequired}個未満は換金できません`;
+  } else {
+    const rest = balls - result.consumedBalls;
+    previewEl.textContent = `→ ¥${result.yen.toLocaleString()}(${result.consumedBalls.toLocaleString()}個を換金${rest > 0 ? `、端数${rest}個は残ります` : ""})`;
+  }
+}
+
+function openCashoutModal(store, rate) {
+  cashoutTarget = { store, rate };
+  document.getElementById("cashoutTitle").textContent = `${store.name} / ${rate.rateLabel} を換金`;
+  document.getElementById("cashoutInfo").textContent =
+    `残高 ${rate.cardBalance.toLocaleString()}個 / ${rate.exchangeYenUnit}円につき${rate.exchangeUnitsRequired}個で換金`;
+  document.getElementById("cashoutBallsInput").value = rate.cardBalance; // 初期値は全額
+  updateCashoutPreview();
+  document.getElementById("cashoutModal").classList.remove("hidden");
+}
+
+document.getElementById("cashoutBallsInput").addEventListener("input", updateCashoutPreview);
+
+document.getElementById("cashoutModalClose").addEventListener("click", () => {
+  document.getElementById("cashoutModal").classList.add("hidden");
+  cashoutTarget = null;
+});
+
+document.getElementById("cashoutForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!cashoutTarget) return;
+
+  const { store } = cashoutTarget;
+  // 他の画面で残高が変わっている可能性があるので、保存前に最新のレートを取り直す
+  const rate = await dbGet(RATES_TABLE, cashoutTarget.rate.id);
+  const balls = nonNeg(document.getElementById("cashoutBallsInput").value);
+
+  if (balls > rate.cardBalance) {
+    alert(`残高(${rate.cardBalance}個)を超えています`);
+    return;
+  }
+  const result = calcCashout(rate, balls);
+  if (result.units === 0) {
+    alert(`${rate.exchangeUnitsRequired}個未満は換金できません`);
+    return;
+  }
+
+  rate.cardBalance -= result.consumedBalls;
+  await dbUpdate(RATES_TABLE, rate);
+
+  await dbAdd(CASHOUTS_TABLE, {
+    date: formatDate(new Date()),
+    rateId: rate.id,
+    storeId: store.id,
+    storeName: store.name,
+    rateLabel: rate.rateLabel,
+    category: rate.category,
+    balls: result.consumedBalls,
+    yen: result.yen,
+    createdAt: new Date().toISOString(),
+  });
+
+  document.getElementById("cashoutModal").classList.add("hidden");
+  cashoutTarget = null;
+  renderCards();
+  // カレンダーにもすぐ反映する(session.jsの関数。画面を開いた時に最新になるよう再描画しておく)
+  if (typeof renderCalendar === "function") {
+    selectedDate = formatDate(new Date());
+    renderCalendar();
+    renderDayDetail(selectedDate);
+  }
+});
 
 // ------------------------------------------------------------
 // 6. 起動時にまとめて描画

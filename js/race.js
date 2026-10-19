@@ -176,7 +176,7 @@ document.getElementById("addBetBtn").addEventListener("click", () => {
     .join("");
 
   document.getElementById("betInvestmentInput").value = "";
-  document.getElementById("betCollectionInput").value = "";
+  document.getElementById("betCollectionInput").value = 0; // 回収金額は外れた時に入力しなくて済むよう、初期値を0にしておく
 
   betModal.classList.remove("hidden");
 });

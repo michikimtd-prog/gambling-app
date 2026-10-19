@@ -91,6 +91,14 @@ async function getMonthlyProfitByDate(year, month) {
       profitByDate[g.date] = (profitByDate[g.date] || 0) + profit;
     });
 
+  // 換金分(一時カード・会員カードの残高を換金した金額は、換金した日の収入として数える)
+  const allCashouts = await dbGetAll(CASHOUTS_TABLE);
+  allCashouts
+    .filter((c) => c.date.startsWith(monthPrefix))
+    .forEach((c) => {
+      profitByDate[c.date] = (profitByDate[c.date] || 0) + c.yen;
+    });
+
   return profitByDate;
 }
 
@@ -152,11 +160,12 @@ async function renderDayDetail(dateStr) {
   const completedSessions = sessions.filter((s) => s.status === "completed");
   const races = await dbGetByIndex(RACES_TABLE, "by_date", dateStr);
   const groupPlays = await dbGetByIndex(GROUP_PLAY_TABLE, "by_date", dateStr);
+  const cashouts = await dbGetByIndex(CASHOUTS_TABLE, "by_date", dateStr);
 
   const listEl = document.getElementById("dayDetailList");
   listEl.innerHTML = "";
 
-  if (completedSessions.length === 0 && races.length === 0 && groupPlays.length === 0) {
+  if (completedSessions.length === 0 && races.length === 0 && groupPlays.length === 0 && cashouts.length === 0) {
     listEl.innerHTML = `<p class="placeholder">この日の記録はまだありません。</p>`;
     return;
   }
@@ -255,6 +264,45 @@ async function renderDayDetail(dateStr) {
       await renderDayDetail(dateStr);
     });
   });
+
+  // 換金の記録(削除すると、換金した分の玉/メダルをカードの残高に戻す)
+  cashouts.forEach((c) => {
+    const li = document.createElement("li");
+    li.className = "day-record-item";
+    li.innerHTML = `
+      <div class="reg-item">
+        <div class="reg-item-main">
+          <span class="reg-item-name">換金 / ${c.storeName} / ${c.rateLabel}</span>
+          <span class="reg-item-sub">${c.balls.toLocaleString()}個を換金</span>
+        </div>
+        <div class="reg-item-main" style="align-items: flex-end;">
+          <span class="day-amount positive">+${c.yen.toLocaleString()}円</span>
+        </div>
+      </div>
+      <div class="reg-item-actions">
+        <button class="delete-btn delete-cashout-btn">削除</button>
+      </div>
+    `;
+    listEl.appendChild(li);
+
+    li.querySelector(".delete-cashout-btn").addEventListener("click", async () => {
+      if (!confirm("この換金の記録を削除しますか?換金した分の玉/メダルをカードの残高に戻します。")) return;
+      await deleteCashout(c);
+      await renderCalendar();
+      await renderDayDetail(dateStr);
+      if (typeof renderCards === "function") renderCards();
+    });
+  });
+}
+
+/** 換金の記録を削除し、換金で減らしたカード残高を元に戻す。 */
+async function deleteCashout(cashout) {
+  const rate = await dbGet(RATES_TABLE, cashout.rateId);
+  if (rate) {
+    rate.cardBalance += cashout.balls;
+    await dbUpdate(RATES_TABLE, rate);
+  }
+  await dbDelete(CASHOUTS_TABLE, cashout.id);
 }
 
 // ------------------------------------------------------------
@@ -297,12 +345,16 @@ async function deletePachinkoSession(session) {
       if (session.usedMemberCard) {
         rate.cardBalance += session.startBallsFromCard;
       }
-      // 終了時: カードに足した分(換金の余り、または換金しなかった全量)を差し引く
-      if (session.cardAction === "exchange") {
+      // 終了時: カードに足した分(換金の余り、または換金しなかった全量)を差し引く。
+      // 会員カードが無い店舗で「換金する」を選んだ場合、余りは破棄されていて
+      // カードには足されていないので、差し引かない(hasMemberCardが無い古い記録はカード有りの店舗扱い)
+      const remainderWentToCard = session.hasMemberCard !== false;
+      if (session.cardAction === "exchange" && remainderWentToCard) {
         rate.cardBalance -= session.endBalls % session.exchangeUnitsRequired;
       } else if (session.cardAction === "keep") {
         rate.cardBalance -= session.endBalls;
       }
+      rate.cardBalance = Math.max(0, rate.cardBalance); // すでに使った/換金した後でもマイナスにならないようにする
       await dbUpdate(RATES_TABLE, rate);
     }
   }
@@ -385,8 +437,9 @@ document.getElementById("sessionStoreSelect").addEventListener("change", async (
     rateSelectEl.innerHTML += `<option value="${rate.id}">${rate.rateLabel}</option>`;
   });
 
-  // 会員カードがある店舗の場合だけ「会員カードを使う」の欄を表示する
-  cardInfoEl.classList.toggle("hidden", !currentStore.hasMemberCard);
+  // カード(会員/一時)の欄は、レートを選んで残高が分かってから表示するかどうか決める
+  cardInfoEl.classList.add("hidden");
+  document.getElementById("sessionUseCardInput").value = 0;
   populateModelSelect(null); // 店舗を変えたら機種選択も一旦リセットする
 });
 
@@ -394,13 +447,19 @@ document.getElementById("sessionStoreSelect").addEventListener("change", async (
 // 同じカテゴリ(パチンコ/スロット)の機種だけを機種選択肢に表示する
 document.getElementById("sessionRateSelect").addEventListener("change", async (event) => {
   const rateId = Number(event.target.value);
+  const cardInfoEl = document.getElementById("cardBalanceInfo");
+  document.getElementById("sessionUseCardInput").value = 0;
   if (!rateId) {
     currentRate = null;
+    cardInfoEl.classList.add("hidden");
     populateModelSelect(null);
     return;
   }
   currentRate = await dbGet(RATES_TABLE, rateId);
   document.getElementById("cardBalanceText").textContent = currentRate.cardBalance;
+  // 会員カードがある店舗、または一時カードに残高がある時だけ「カードから使う数」の欄を出す
+  document.getElementById("cardUseLabelName").textContent = currentStore.hasMemberCard ? "会員カード" : "一時カード";
+  cardInfoEl.classList.toggle("hidden", !(currentStore.hasMemberCard || currentRate.cardBalance > 0));
   populateModelSelect(currentRate.category);
 });
 
@@ -427,8 +486,8 @@ document.getElementById("sessionStartBtn").addEventListener("click", async () =>
 
   // 会員カードから使う数(0〜残高の範囲に収める。上限を超えていたら止める)
   const startBallsFromCard = nonNeg(document.getElementById("sessionUseCardInput").value);
-  if (currentStore.hasMemberCard && startBallsFromCard > currentRate.cardBalance) {
-    alert(`会員カードの残高(${currentRate.cardBalance}個)を超えています`);
+  if (startBallsFromCard > currentRate.cardBalance) {
+    alert(`カードの残高(${currentRate.cardBalance}個)を超えています`);
     return;
   }
 
@@ -447,6 +506,8 @@ document.getElementById("sessionStartBtn").addEventListener("click", async () =>
     modelId: modelId,
     modelName: modelName,
     startGameCount: startGameCount,
+    gameCountBase: startGameCount, // 「次の当たりまで何ゲームか」の数え始めの値(続けるを押すたびに0になる)
+    hasMemberCard: currentStore.hasMemberCard, // 終了後に削除する時、カード残高を正しく戻すために覚えておく
     usedMemberCard: startBallsFromCard > 0,
     startBallsFromCard: startBallsFromCard,
     investmentAmount: 0,
@@ -502,8 +563,44 @@ function syncProgressInputsToSession() {
   currentSession.currentBalls = nonNeg(document.getElementById("currentBallsInput").value);
 }
 
+// ------------------------------------------------------------
+// 進行中画面の自動保存
+// 以前は「当たり」「終了」を押した時にしかDBに保存していなかったため、
+// 長時間アプリを閉じていてiPhoneがアプリを破棄すると、最後に保存した時点
+// (開始直後や前回の当たり)の状態に戻ってしまっていた。
+// 入力のたびに少し待ってから保存し、アプリが裏に回る時にも保存する。
+// ------------------------------------------------------------
+let progressSaveTimer = null;
+
+async function persistProgress() {
+  clearTimeout(progressSaveTimer);
+  if (!currentSession || currentSession.status !== "in_progress") return;
+  // 当たり記録画面や終了画面では、入力欄の値が古い可能性があるので保存しない
+  if (!document.getElementById("screen-progress").classList.contains("active")) return;
+  syncProgressInputsToSession();
+  await dbUpdate(PACHINKO_SESSIONS_TABLE, currentSession);
+}
+
+function scheduleProgressSave() {
+  clearTimeout(progressSaveTimer);
+  progressSaveTimer = setTimeout(persistProgress, 400);
+}
+
+["investmentAmountInput", "currentGameCountInput", "currentBallsInput"].forEach((id) => {
+  document.getElementById(id).addEventListener("input", scheduleProgressSave);
+});
+document.getElementById("investMinusBtn").addEventListener("click", scheduleProgressSave);
+document.getElementById("investPlusBtn").addEventListener("click", scheduleProgressSave);
+
+// アプリが裏に回る(ホームに戻る・他のアプリに切り替える)タイミングでも保存する
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") persistProgress();
+});
+window.addEventListener("pagehide", persistProgress);
+
 document.getElementById("winBtn").addEventListener("click", () => {
   syncProgressInputsToSession();
+  dbUpdate(PACHINKO_SESSIONS_TABLE, currentSession); // 当たり記録画面でアプリが閉じられても、ここまでの状態は残す
 
   // 「当たった時のゲーム数・投資金額」は直前の進行中画面で入力済みの値そのものなので、
   // ここでは再入力させず確認用のテキストとして表示するだけにする
@@ -524,6 +621,7 @@ document.getElementById("backFromWinBtn").addEventListener("click", () => {
 
 document.getElementById("endFromProgressBtn").addEventListener("click", () => {
   syncProgressInputsToSession();
+  dbUpdate(PACHINKO_SESSIONS_TABLE, currentSession);
   enterEndScreen(currentSession.currentGameCount, currentSession.currentBalls);
 });
 
@@ -562,7 +660,7 @@ function updateWinCollectedPreview() {
 document.getElementById("winNewBallsInput").addEventListener("input", updateWinCollectedPreview);
 
 /** 入力された当たり情報をcurrentSession.winsに1件追加し、DBに保存する。 */
-async function commitWinEntry() {
+async function commitWinEntry(resetGameCount) {
   // ゲーム数・投資金額はすでにcurrentSessionに入っている値をそのまま使う(再入力させない)
   const atGameCount = currentSession.currentGameCount;
   const atInvestment = currentSession.investmentAmount;
@@ -570,19 +668,36 @@ async function commitWinEntry() {
   // 回収数は「回収後の所持数」と「当たった時点の所持数」の差分から自動計算する
   const collectedBalls = Math.max(0, newBalls - winBallsBeforeWin);
 
-  currentSession.wins.push({ atGameCount, atInvestment, collectedBalls });
+  // 前回の当たり(または開始)から何ゲームで当たったか。続けるたびにゲーム数を0に戻すので、
+  // 数え始めの値(gameCountBase)との差で求める。古い記録(gameCountBaseが無い)は従来通り直前の当たりとの差
+  const lastWin = currentSession.wins[currentSession.wins.length - 1];
+  const base =
+    currentSession.gameCountBase !== undefined
+      ? currentSession.gameCountBase
+      : lastWin
+        ? lastWin.atGameCount
+        : currentSession.startGameCount;
+  const intervalGames = Math.max(0, atGameCount - base);
+
+  currentSession.wins.push({ atGameCount, atInvestment, collectedBalls, intervalGames });
   currentSession.currentBalls = newBalls;
+
+  // 続ける時は、次の当たりまでのゲーム数を数え直すために0に戻す
+  if (resetGameCount) {
+    currentSession.currentGameCount = 0;
+    currentSession.gameCountBase = 0;
+  }
 
   await dbUpdate(PACHINKO_SESSIONS_TABLE, currentSession);
 }
 
 document.getElementById("continueBtn").addEventListener("click", async () => {
-  await commitWinEntry();
+  await commitWinEntry(true);
   enterProgressScreen();
 });
 
 document.getElementById("endFromWinBtn").addEventListener("click", async () => {
-  await commitWinEntry();
+  await commitWinEntry(false);
   enterEndScreen(currentSession.currentGameCount, currentSession.currentBalls);
 });
 
@@ -599,10 +714,17 @@ function enterEndScreen(prefillGameCount, prefillBalls) {
   selectedCardAction = null;
   document.querySelectorAll("#cardActionGroup .toggle-btn").forEach((b) => b.classList.remove("active"));
 
-  // 会員カードがある店舗の時だけ「換金する/しない」の選択肢を出す
-  cardActionGroup.classList.toggle("hidden", !currentStore.hasMemberCard);
-  if (!currentStore.hasMemberCard) {
-    selectedCardAction = "exchange"; // カードがない場合は常に全額換金扱いにする
+  // 会員カードの有無にかかわらず「換金する/あとにする」を選べるようにする。
+  // 会員カードが無い店舗では、あとにする場合は「一時カード」に保存しておく
+  cardActionGroup.classList.remove("hidden");
+  if (currentStore.hasMemberCard) {
+    document.getElementById("cardActionLabel").textContent = "会員カードへの対応";
+    document.getElementById("cardExchangeBtn").textContent = "換金する(余りをカードへ)";
+    document.getElementById("cardKeepBtn").textContent = "換金しない(全部カードへ)";
+  } else {
+    document.getElementById("cardActionLabel").textContent = "このあとどうしますか?";
+    document.getElementById("cardExchangeBtn").textContent = "今すぐ換金(余りは破棄)";
+    document.getElementById("cardKeepBtn").textContent = "一時カードに保存(あとで換金・次の台で使う)";
   }
 
   showSessionScreen("screen-end");
@@ -630,8 +752,8 @@ document.getElementById("confirmEndBtn").addEventListener("click", async () => {
   // (連打防止のボタン無効化と合わせて、二重の安全策にしている)
   if (currentSession.status === "completed") return;
 
-  if (currentStore.hasMemberCard && !selectedCardAction) {
-    alert("会員カードへの対応(換金する/しない)を選んでください");
+  if (!selectedCardAction) {
+    alert("換金するか、カードに保存するかを選んでください");
     return;
   }
 
@@ -657,8 +779,8 @@ document.getElementById("confirmEndBtn").addEventListener("click", async () => {
     cardBalanceToAdd = endBalls; // 全部カードに戻す
   }
 
-  // 会員カードがある場合は、最新のレート情報を取得してから残高を更新する
-  if (currentStore.hasMemberCard && cardBalanceToAdd > 0) {
+  // カード(会員カード、または一時カード)に残す分がある場合は、最新のレート情報を取得してから残高を更新する
+  if (cardBalanceToAdd > 0) {
     const latestRate = await dbGet(RATES_TABLE, currentSession.rateId);
     latestRate.cardBalance += cardBalanceToAdd;
     await dbUpdate(RATES_TABLE, latestRate);
@@ -667,7 +789,7 @@ document.getElementById("confirmEndBtn").addEventListener("click", async () => {
   currentSession.status = "completed";
   currentSession.endGameCount = endGameCount;
   currentSession.endBalls = endBalls;
-  currentSession.cardAction = currentStore.hasMemberCard ? selectedCardAction : null;
+  currentSession.cardAction = selectedCardAction;
   currentSession.collectedYen = collectedYen;
   await dbUpdate(PACHINKO_SESSIONS_TABLE, currentSession);
 
