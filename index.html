@@ -203,16 +203,22 @@
         <button id="cancelRaceBtn" class="text-btn-neutral">← カレンダーに戻る</button>
       </div>
 
-      <!-- 画面: ノリ打ち(友達と一緒に打つ時のシンプルな収支記録) -->
+      <!-- 画面: ノリ打ち(個人の収支を確定させたあとに、友達との精算などで収支を調整する) -->
       <div class="session-screen" id="screen-groupplay">
-        <h2 class="screen-title">ノリ打ち記録</h2>
+        <h2 class="screen-title">ノリ打ち調整</h2>
+        <p class="confirm-text">個人の収支を確定したあとに、ノリ打ちの精算分を足したり引いたりして収支を調整します。</p>
 
         <div class="field-group">
-          <label>カテゴリ</label>
-          <select id="groupPlayCategoryInput">
-            <option value="パチンコ">パチンコ</option>
-            <option value="スロット">スロット</option>
-          </select>
+          <label>増減</label>
+          <div class="toggle-row">
+            <button type="button" class="toggle-btn active" id="groupPlayPlusBtn">＋ 増やす(受け取る)</button>
+            <button type="button" class="toggle-btn" id="groupPlayMinusBtn">− 減らす(支払う)</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label>調整する金額(円)</label>
+          <input type="number" id="groupPlayAmountInput" value="0" min="0" />
         </div>
 
         <div class="field-group">
@@ -223,18 +229,8 @@
         </div>
 
         <div class="field-group">
-          <label>投資金額(円)</label>
-          <input type="number" id="groupPlayInvestmentInput" value="0" min="0" />
-        </div>
-
-        <div class="field-group">
-          <label>回収金額(円)</label>
-          <input type="number" id="groupPlayCollectionInput" value="0" min="0" />
-        </div>
-
-        <div class="field-group">
           <label>メモ(任意・誰と打ったかなど)</label>
-          <input type="text" id="groupPlayMemoInput" placeholder="例: ○○と2人で" />
+          <input type="text" id="groupPlayMemoInput" placeholder="例: ○○と折半" />
         </div>
 
         <button id="saveGroupPlayBtn" class="primary-btn">保存</button>

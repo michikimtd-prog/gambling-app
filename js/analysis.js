@@ -56,12 +56,18 @@ async function getAllProfitRecords() {
     };
   });
 
+  // ノリ打ちの調整は、増やす分を回収、減らす分を投資として扱い、収支の金額だけに反映する。
+  // 1回の勝負ではないので、勝率の回数には含めない(isAdjustmentの目印を付ける)
   const groupPlays = await dbGetAll(GROUP_PLAY_TABLE);
-  const groupPlayRecords = groupPlays.map((g) => ({
-    date: g.date,
-    investment: g.investmentAmount,
-    collection: g.collectedYen,
-  }));
+  const groupPlayRecords = groupPlays.map((g) => {
+    const adjustment = groupPlayProfit(g);
+    return {
+      date: g.date,
+      investment: adjustment < 0 ? -adjustment : 0,
+      collection: adjustment > 0 ? adjustment : 0,
+      isAdjustment: true,
+    };
+  });
 
   // 換金は「換金した日の収入」として数える(勝ち負けの回数には含めないのでisCashoutの目印を付ける)
   const cashouts = await dbGetAll(CASHOUTS_TABLE);
@@ -312,8 +318,8 @@ function renderTaxGauge(allRecords) {
 function calcStats(records) {
   const investment = records.reduce((sum, r) => sum + r.investment, 0);
   const collection = records.reduce((sum, r) => sum + r.collection, 0);
-  // 換金は「1回の勝負」ではないので、勝率の分母・分子には含めない(金額の合計には含める)
-  const counted = records.filter((r) => !r.isCashout);
+  // 換金・ノリ打ちの調整は「1回の勝負」ではないので、勝率の分母・分子には含めない(金額の合計には含める)
+  const counted = records.filter((r) => !r.isCashout && !r.isAdjustment);
   const winCount = counted.filter((r) => r.collection > r.investment).length;
   const count = counted.length;
   return {

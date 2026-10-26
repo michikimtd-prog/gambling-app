@@ -51,6 +51,13 @@ function nonNeg(value) {
   return Math.max(0, Number(value) || 0);
 }
 
+/** ノリ打ちの記録1件の増減額(円)を返す。
+ *  今の記録は調整額(adjustment、マイナスもある)を1つだけ持つ。
+ *  以前の版で保存した記録(投資・回収の2つを持つ)も、差し引きして同じ形で扱えるようにしている。 */
+function groupPlayProfit(g) {
+  return g.adjustment !== undefined ? g.adjustment : g.collectedYen - g.investmentAmount;
+}
+
 // ------------------------------------------------------------
 // 2.5 カレンダー画面(ホーム画面)
 // ------------------------------------------------------------
@@ -87,8 +94,7 @@ async function getMonthlyProfitByDate(year, month) {
   allGroupPlays
     .filter((g) => g.date.startsWith(monthPrefix))
     .forEach((g) => {
-      const profit = g.collectedYen - g.investmentAmount;
-      profitByDate[g.date] = (profitByDate[g.date] || 0) + profit;
+      profitByDate[g.date] = (profitByDate[g.date] || 0) + groupPlayProfit(g);
     });
 
   // 換金分(一時カード・会員カードの残高を換金した金額は、換金した日の収入として数える)
@@ -236,16 +242,16 @@ async function renderDayDetail(dateStr) {
     });
   }
 
-  // ノリ打ちの記録(修正機能は無く、削除して記録し直す形にしている)
+  // ノリ打ちの調整(修正機能は無く、削除して記録し直す形にしている)
   groupPlays.forEach((g) => {
-    const profit = g.collectedYen - g.investmentAmount;
+    const profit = groupPlayProfit(g);
     const li = document.createElement("li");
     li.className = "day-record-item";
     li.innerHTML = `
       <div class="reg-item">
         <div class="reg-item-main">
-          <span class="reg-item-name">ノリ打ち / ${g.category}${g.storeName ? ` / ${g.storeName}` : ""}</span>
-          <span class="reg-item-sub">投資 ¥${g.investmentAmount.toLocaleString()} / 回収 ¥${g.collectedYen.toLocaleString()}${g.memo ? ` / ${g.memo}` : ""}</span>
+          <span class="reg-item-name">ノリ打ち調整${g.storeName ? ` / ${g.storeName}` : ""}</span>
+          <span class="reg-item-sub">${g.memo ? g.memo : "収支の調整"}</span>
         </div>
         <div class="reg-item-main" style="align-items: flex-end;">
           <span class="day-amount ${profit >= 0 ? "positive" : "negative"}">${profit >= 0 ? "+" : ""}${profit.toLocaleString()}円</span>
@@ -258,7 +264,7 @@ async function renderDayDetail(dateStr) {
     listEl.appendChild(li);
 
     li.querySelector(".delete-groupplay-btn").addEventListener("click", async () => {
-      if (!confirm("このノリ打ちの記録を削除しますか?")) return;
+      if (!confirm("このノリ打ちの調整を削除しますか?")) return;
       await dbDelete(GROUP_PLAY_TABLE, g.id);
       await renderCalendar();
       await renderDayDetail(dateStr);
